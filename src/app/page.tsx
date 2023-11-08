@@ -1,21 +1,29 @@
 "use client";
 
-import { QueryKey, useQuery } from "@tanstack/react-query";
+import {
+  QueryKey,
+  keepPreviousData,
+  useInfiniteQuery,
+  useQuery,
+} from "@tanstack/react-query";
 import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useInView } from "react-intersection-observer";
 
 type Pokemon = {
   name: string;
   url: string;
 };
 
-async function fetchPokemon({ queryKey }: { queryKey: QueryKey }) {
+async function fetchPokemon({ pageParam }: { pageParam: number }) {
+  console.log(pageParam);
   const res = await fetch(
-    `https://pokeapi.co/api/v2/pokemon?limit=${queryKey[1]}&offset=0`
+    `https://pokeapi.co/api/v2/pokemon?limit=20&offset=${pageParam}`
   ).then((res) => res.json());
 
   return res.results as Pokemon[];
 }
+
 
 function getImageURL(pokemonId: number) {
   return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${pokemonId}.png
@@ -23,53 +31,52 @@ function getImageURL(pokemonId: number) {
 }
 
 export default function Home() {
-  const [limit, setLimit] = useState(20);
-  const { data } = useQuery({
-    queryKey: ["pokemon", limit],
+  const { ref, inView } = useInView();
+
+  const { data: pokemons, fetchNextPage } = useInfiniteQuery({
+    queryKey: ["pokemon"],
     queryFn: fetchPokemon,
+    initialPageParam: 0,
+    getPreviousPageParam: (_firstPage, _allPages, firstPageParam) =>
+      firstPageParam - 1 || undefined,
+    getNextPageParam: (_lastPage, _allPages, lastPageParam) =>
+      lastPageParam + 1 || undefined,
   });
 
-  const bottomRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (inView) {
+      fetchNextPage();
+    }
+  }, [fetchNextPage, inView]);
 
   return (
-    <div className="w-full max-w-md mx-auto">
-      <header className="bg-red-600 p-8 pb-4 fixed inset-x-0 h-">
+    <div className="relative w-full max-w-md mx-auto h-screen overflow-hidden">
+      <header className="bg-red-600 p-8 pb-4 absolute inset-x-0">
         <h1 className="text-lg font-semibold">Pokedex</h1>
       </header>
-      <main className="p-8 pt-24">
-        {!!data ? (
+      <main className="p-8 pt-24 overflow-y-auto h-full">
+        {!!pokemons ? (
           <>
             <ul className="grid grid-cols-2 gap-6">
-              {data.map((datum, datumIdx) => (
+              {pokemons.pages.flat().map((pokemon, pokemonIdx) => (
                 <li
-                  key={datumIdx}
-                  className="bg-slate-300 text-black min-h-[170px] rounded-md p-4"
+                  key={pokemonIdx}
+                  className="text-black min-h-[170px] rounded-md p-4 bg-slate-500"
                 >
                   <Image
-                    src={getImageURL(datumIdx + 1)}
-                    alt={datum.name}
+                    src={getImageURL(pokemonIdx + 1)}
+                    alt={pokemon.name}
                     width={500}
                     height={500}
                     priority
                   />
                   <p className="mt-4 text-sm font-semibold text-center text-white">
-                    {datum.name}
+                    {pokemon.name}
                   </p>
                 </li>
               ))}
             </ul>
-            <div ref={bottomRef}></div>
-            <div className="mt-4 flex items-center justify-center">
-              <button
-                type="button"
-                onClick={() => {
-                  setLimit((prevState) => prevState + 10);
-                }}
-                className=""
-              >
-                Load more
-              </button>
-            </div>
+            <div ref={ref}></div>
           </>
         ) : (
           <p>Loading...</p>

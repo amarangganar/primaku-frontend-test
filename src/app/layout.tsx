@@ -1,28 +1,24 @@
-'use client';
+import type { Metadata } from "next";
+import { Inter } from "next/font/google";
+import "./globals.css";
+import QueryProvider from "./components/query-provider";
 
-import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
-import './globals.css'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+const inter = Inter({ subsets: ["latin"] });
 
-const inter = Inter({ subsets: ['latin'] })
-
-const queryClient = new QueryClient({defaultOptions: {
-  queries: {
-    refetchOnWindowFocus: false
-  }
-}});
+export const metadata: Metadata = {
+  title: 'Pokemon App'
+}
 
 export default function RootLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
 }) {
   return (
-    <QueryClientProvider client={queryClient}>
+    <QueryProvider>
       <html lang="en">
         <body className={inter.className}>{children}</body>
       </html>
-    </QueryClientProvider>
+    </QueryProvider>
   );
 }
